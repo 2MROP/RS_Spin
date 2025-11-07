@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Spin The Wheel</title>
+  <link rel="icon" href="logo.png" type="image/png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+    html, body {
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      overscroll-behavior: none;
+    }
+    body {
+      touch-action: pan-y;
+      /* Background image + DARK overlay so wheel stands out */
+      background:
+        linear-gradient(rgba(0,0,0,.60), rgba(0,0,0,.60)),
+        url("puzzle.jpg") center center / cover no-repeat fixed;
+      color: #f3f4f6;
+    }
+
+    .wheel {
+      transition-property: transform;
+      transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+      transform-origin: center center;
+      will-change: transform;
+    }
+    .wheel-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* Pointer fixed in wheel center */
+    .pointer-image {
+      width: 86px;
+      height: 86px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,.45));
+      pointer-events: none;
+      user-select: none;
+    }
+    @media (min-width: 640px) {
+      .pointer-image { width: 104px; height: 104px; }
+    }
+
+    .spin-button {
+      transition: transform .15s ease, box-shadow .15s ease;
+      touch-action: manipulation;
+    }
+    .spin-button:active:not(:disabled) { transform: scale(.96); }
+
+    .modal-backdrop { backdrop-filter: blur(8px); }
+    @keyframes slideUp { from{transform:translateY(100px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .animate-slide-up { animation: slideUp .3s ease-out forwards; }
+
+    .no-scroll { position: fixed; overflow: hidden; width: 100%; height: 100%; }
+  </style>
+</head>
+
+<body class="text-gray-100 font-sans antialiased">
+  <div class="flex flex-col h-full w-full safe-area-inset">
+
+    <!-- Header -->
+    <header class="flex-shrink-0 pt-4 pb-2 px-4 text-center">
+      <h1
+        class="text-3xl sm:text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        SPIN THE WHEEL
+      </h1>
+
+      <!-- SPIN BUTTON under heading -->
+      <button id="spinButton"
+        class="spin-button mx-auto mt-4 w-28 h-28 sm:w-32 sm:h-32 bg-white/95 text-blue-700 rounded-full border-4 border-white/70 shadow-[0_12px_30px_rgba(0,0,0,.35)] font-extrabold text-lg sm:text-xl disabled:opacity-60 disabled:cursor-not-allowed">
+        SPIN
+      </button>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col items-center justify-center px-4 min-h-0">
+      <div class="w-full max-w-md flex flex-col items-center justify-center">
+
+        <!-- Wheel Container -->
+        <div id="wheel-container" class="relative mb-6 flex-shrink-0">
+
+          <!-- Pointer centered -->
+          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+            <img src="pointer.jpg" alt="Pointer" class="pointer-image" draggable="false" />
+          </div>
+
+          <!-- Wheel -->
+          <div id="wheel" class="wheel w-full h-full rounded-full shadow-2xl relative overflow-hidden">
+            <img src="wheel.jpg" alt="Spinning Wheel" class="wheel-image" draggable="false" />
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <!-- <footer class="flex-shrink-0 text-center py-3 px-4">
+      <p class="text-xs sm:text-sm text-gray-200/80">
+        Created by
+        <a href="https://mithunrajmr.netlify.app/" target="_blank" rel="noopener noreferrer"
+           class="font-semibold text-blue-300 hover:underline">Mithun Raj</a>
+      </p>
+    </footer> -->
+  </div>
+
+  <!-- Winner / Message Modal -->
+  <div id="modal"
+       class="fixed inset-0 bg-black/80 modal-backdrop flex items-center justify-center z-50 p-4 hidden"
+       role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <canvas id="confettiCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+    <div id="modalContent"
+         class="relative bg-white dark:bg-gray-800 w-full max-w-sm p-6 sm:p-8 rounded-3xl shadow-2xl text-center opacity-0">
+      <div class="mb-4">
+        <div id="modalEmoji" class="text-5xl mb-2">🎉</div>
+        <h2 id="modalTitle" class="text-lg sm:text-xl font-medium text-gray-500 dark:text-gray-400 mb-3">
+          Congratulations!
+        </h2>
+        <p id="winnerText"
+           class="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-6 break-words">
+          You won!
+        </p>
+      </div>
+      <button id="closeModal"
+              class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Elements
+      const wheel = document.getElementById('wheel');
+      const spinButton = document.getElementById('spinButton');
+      const modal = document.getElementById('modal');
+      const modalContent = document.getElementById('modalContent');
+      const closeModal = document.getElementById('closeModal');
+      const winnerText = document.getElementById('winnerText');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalEmoji = document.getElementById('modalEmoji');
+      const wheelContainer = document.getElementById('wheel-container');
+
+      // Segments (clockwise in the image, starting from the image's 0°)
+      const wheelSegments = [
+        'Complimentary Drink',
+        'Better Luck Next Time',
+        'Complimentary Drink',
+        'Better Luck Next Time',
+        'Complimentary Drink'
+      ];
+
+      // --- State
+      let currentRotation = 0;
+      let isSpinning = false;
+      let wheelSize = 280;
+      let spinDuration = 5000;
+
+      // ====== WINNER CALIBRATION ======
+      // Pointer is in the CENTER and points DOWN.
+      // Each segment is 72°. Tweak CALIBRATION_OFFSET if the visual winner
+      // is off by one slice due to artwork orientation.
+      const SEGMENT_COUNT = wheelSegments.length;         // 5
+      const SEGMENT_SIZE = 360 / SEGMENT_COUNT;           // 72
+      const POINTER_DIRECTION = 270;                      // 270° = down
+      const CALIBRATION_OFFSET = 12; // degrees to align artwork; tweak if needed
+
+      function getOptimalWheelSize() {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const isMobile = vw < 640;
+
+        const padding = isMobile ? 32 : 64;
+        const headerHeight = isMobile ? 180 : 200; // a bit taller because button moved up
+        const footerHeight = 60;
+        const spacing = isMobile ? 60 : 80;
+
+        const availableWidth = vw - padding;
+        const availableHeight = vh - headerHeight - footerHeight - spacing;
+
+        const maxSize = isMobile ? 340 : 420;
+        const minSize = 220;
+
+        let size = Math.min(availableWidth, availableHeight, maxSize);
+        size = Math.max(size, minSize);
+
+        return Math.floor(size);
+      }
+
+      function updateWheelDimensions() {
+        wheelContainer.style.width = `${wheelSize}px`;
+        wheelContainer.style.height = `${wheelSize}px`;
+      }
+
+      function updateSpinDuration() {
+        wheel.style.transitionDuration = `${spinDuration}ms`;
+      }
+
+      // Compute which segment is under the pointer tip (center-down)
+      function calculateWinner(totalRotationDeg) {
+        // Normalize wheel rotation [0,360)
+        const r = ((totalRotationDeg % 360) + 360) % 360;
+
+        // Angle of the image that sits under the pointer direction:
+        // (wheel rotates clockwise; we compare the artwork's 0° against pointer)
+        const angleAtPointer = (r + CALIBRATION_OFFSET - POINTER_DIRECTION + 360) % 360;
+
+        // Convert angle to segment index
+        let index = Math.floor(angleAtPointer / SEGMENT_SIZE);
+        // Make sure index in range 0..SEGMENT_COUNT-1
+        index = ((index % SEGMENT_COUNT) + SEGMENT_COUNT) % SEGMENT_COUNT;
+
+        return wheelSegments[index];
+      }
+
+      // Spin button
+      spinButton.addEventListener('click', () => {
+        if (isSpinning) return;
+
+        isSpinning = true;
+        spinButton.disabled = true;
+
+        const baseSpins = 5 + Math.floor(Math.random() * 3);
+        const randomStopAngle = Math.random() * 360;
+        const totalRotation = (baseSpins * 360) + randomStopAngle;
+
+        currentRotation += totalRotation;
+        wheel.style.transform = `rotate(${currentRotation}deg)`;
+      });
+
+      // Transition end = decide result
+      wheel.addEventListener('transitionend', () => {
+        if (!isSpinning) return;
+
+        isSpinning = false;
+        spinButton.disabled = false;
+
+        const result = calculateWinner(currentRotation);
+        showResult(result);
+      });
+
+      // Modal handling
+      function showResult(resultText) {
+        const isWin = /complimentary/i.test(resultText);
+
+        // Title + emoji + text + confetti based on outcome
+        if (isWin) {
+          modalEmoji.textContent = '🎉';
+          modalTitle.textContent = 'Congratulations!';
+          winnerText.textContent = resultText;
+          startConfetti();
+        } else {
+          modalEmoji.textContent = '🙂';
+          modalTitle.textContent = 'Better Luck Next Time';
+          winnerText.textContent = 'Try again!';
+          stopConfetti();
+        }
+
+        modal.classList.remove('hidden');
+        document.body.classList.add('no-scroll');
+
+        setTimeout(() => {
+          modalContent.classList.add('animate-slide-up');
+          modalContent.style.opacity = '1';
+        }, 10);
+      }
+
+      function hideModal() {
+        modalContent.style.opacity = '0';
+        modalContent.classList.remove('animate-slide-up');
+
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          document.body.classList.remove('no-scroll');
+          stopConfetti();
+        }, 200);
+      }
+
+      closeModal.addEventListener('click', hideModal);
+      modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+
+      // ===== Confetti (only for wins) =====
+      const confettiCanvas = document.getElementById('confettiCanvas');
+      const ctx = confettiCanvas.getContext('2d');
+      let confettiParticles = [];
+      let confettiAnimationId;
+      const confettiColors = ['#3b82f6','#8b5cf6','#ec4899','#10b981','#f59e0b','#ef4444'];
+
+      function resizeCanvas() {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+      }
+
+      function Particle() {
+        this.x = confettiCanvas.width / 2;
+        this.y = confettiCanvas.height / 2;
+        this.radius = Math.random() * 4 + 2;
+        this.color = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        this.vx = (Math.random() - 0.5) * 12;
+        this.vy = (Math.random() - 0.5) * 12 - 5;
+        this.opacity = 1;
+        this.gravity = 0.15;
+        this.friction = 0.98;
+      }
+      Particle.prototype.draw = function() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.opacity;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      };
+      Particle.prototype.update = function() {
+        this.vy += this.gravity;
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.opacity -= 0.004;
+      };
+
+      function startConfetti() {
+        resizeCanvas();
+        confettiParticles = [];
+        for (let i = 0; i < 150; i++) confettiParticles.push(new Particle());
+        animateConfetti();
+      }
+      function animateConfetti() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiParticles = confettiParticles.filter(p => p.opacity > 0 && p.y < confettiCanvas.height);
+        confettiParticles.forEach(p => { p.update(); p.draw(); });
+        if (confettiParticles.length > 0) confettiAnimationId = requestAnimationFrame(animateConfetti);
+      }
+      function stopConfetti() {
+        cancelAnimationFrame(confettiAnimationId);
+        confettiParticles = [];
+        if (ctx) ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      }
+
+      // Resize + init
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          initializeWheelSize();
+          resizeCanvas();
+        }, 150);
+      });
+
+      // Prevent pull-to-refresh on mobile
+      let startY;
+      document.addEventListener('touchstart', e => { startY = e.touches[0].pageY; }, { passive: true });
+      document.addEventListener('touchmove', e => {
+        const y = e.touches[0].pageY;
+        if (window.scrollY === 0 && y > startY) e.preventDefault();
+      }, { passive: false });
+
+      function initializeWheelSize() {
+        wheelSize = getOptimalWheelSize();
+        updateWheelDimensions();
+      }
+
+      // Init
+      initializeWheelSize();
+      updateSpinDuration();
+      resizeCanvas();
+    });
+  </script>
+</body>
+</html>
